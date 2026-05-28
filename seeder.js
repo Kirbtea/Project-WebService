@@ -1,81 +1,55 @@
 // File: seeder.js
 const mongoose = require('mongoose');
-const dotenv = require('dotenv');
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
+require('dotenv').config();
 
-// Load env variables
-dotenv.config();
-
-// Import Models yang sudah kita buat sebelumnya
 const User = require('./models/User');
 const Game = require('./models/Game');
+const Rental = require('./models/Rental');
+const RentalDetail = require('./models/RentalDetail');
 
-// Sambung ke MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB Connected for Seeding...'))
-  .catch(err => console.log(err));
-
-// Siapkan Data Dummy untuk di-inject
-const importData = async () => {
+const seedDB = async () => {
   try {
-    // 1. Bersihkan database terlebih dahulu (opsional tapi disarankan agar tidak duplikat)
+    await mongoose.connect(process.env.MONGODB_URI);
+    console.log('Terhubung ke MongoDB untuk Seeding...');
+
+    // 1. Reset/Hapus semua data di database
     await User.deleteMany();
     await Game.deleteMany();
+    await Rental.deleteMany();
+    await RentalDetail.deleteMany();
+    console.log('Semua data lama berhasil dihapus!');
 
-    console.log('Data lama berhasil dihapus!');
+    // 2. Buat Password yang sudah di-hash
+    const hashedPassword = await bcrypt.hash('password123', 10);
 
-    // 2. Buat password yang sudah di-hash untuk user dummy
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash('password123', salt);
-
-    // 3. Inject Data Master User
-    const users = await User.insertMany([
+    // 3. Masukkan 2 User Dummy (Admin & Gamer)
+    await User.insertMany([
       {
-        username: 'admin_ganteng',
+        username: 'Admin Super',
         email: 'admin@rental.com',
         password: hashedPassword,
-        profilePicture: 'uploads/default_admin.jpg',
         role: 'admin',
-        walletBalance: 9999999
+        profilePicture: 'default_admin.jpg',
+        walletBalance: 0
       },
       {
-        username: 'gamer_sejati',
+        username: 'Gamer Sejati',
         email: 'gamer@rental.com',
         password: hashedPassword,
-        profilePicture: 'uploads/default_user.jpg',
         role: 'gamer',
-        walletBalance: 50000
+        profilePicture: 'default_gamer.jpg',
+        walletBalance: 50000 // Punya saldo awal buat ngetes
       }
     ]);
 
-    // 4. Inject Data Master Game (Bisa dikembangkan dengan fetch ke FreeToGame API di sini)
-    await Game.insertMany([
-      {
-        freetogameId: 1,
-        title: 'Overwatch 2',
-        genre: 'Shooter',
-        platform: 'PC (Windows)',
-        thumbnail: 'https://www.freetogame.com/g/540/thumbnail.jpg',
-        rentPrice: 15000
-      },
-      {
-        freetogameId: 2,
-        title: 'Genshin Impact',
-        genre: 'Action RPG',
-        platform: 'PC (Windows)',
-        thumbnail: 'https://www.freetogame.com/g/475/thumbnail.jpg',
-        rentPrice: 20000
-      }
-    ]);
-
-    console.log('Data sukses di-inject (Seeded)!');
-    process.exit(); // Matikan proses setelah selesai
-
+    console.log('Data User (Admin & Gamer) berhasil dibuat!');
+    console.log('Seeding selesai!');
+    process.exit();
   } catch (error) {
-    console.error(`Error: ${error.message}`);
-    process.exit(1); // Matikan proses dengan status error
+    console.error('Error saat seeding:', error);
+    process.exit(1);
   }
 };
 
-// Panggil fungsinya
-importData();
+seedDB();
