@@ -129,3 +129,103 @@ exports.login = async (req, res) => {
     return res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
+
+exports.getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id)
+      .select('-password');
+
+    res.status(200).json({
+      message: 'Profil berhasil diambil',
+      data: user
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message
+    });
+  }
+};  
+
+exports.updateProfile = async (req, res) => {
+  try {
+    const { username } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        message: 'User tidak ditemukan'
+      });
+    }
+
+    if (username) {
+      user.username = username;
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      message: 'Profil berhasil diperbarui',
+      data: user
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message
+    });
+  }
+};
+
+exports.getWallet = async (req, res) => {
+  try {
+
+    const user = await User.findById(req.user.id);
+
+    res.status(200).json({
+      walletBalance: user.walletBalance
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message
+    });
+  }
+};
+
+exports.topupWallet = async (req, res) => {
+  try {
+
+    const schema = Joi.object({
+      amount: Joi.number()
+        .min(1000)
+        .required()
+    });
+
+    const { error } = schema.validate(req.body);
+
+    if (error) {
+      return res.status(400).json({
+        message: error.details[0].message
+      });
+    }
+
+    const { amount } = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    user.walletBalance += amount;
+
+    await user.save();
+
+    res.status(200).json({
+      message: 'Top up berhasil',
+      walletBalance: user.walletBalance
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message
+    });
+  }
+};

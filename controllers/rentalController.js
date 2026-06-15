@@ -246,3 +246,126 @@ exports.cancelRental = async (req, res) => {
     return res.status(500).json({ message: "Server Error", error: error.message });
   }
 };
+
+exports.getRentalDetail = async (req, res) => {
+  try {
+    const rental = await Rental.findById(req.params.id)
+      .populate('user', 'username email');
+
+    if (!rental) {
+      return res.status(404).json({
+        message: "Rental tidak ditemukan"
+      });
+    }
+
+    const items = await RentalDetail.find({
+      rental: rental._id
+    }).populate('game');
+
+    return res.status(200).json({
+      rental,
+      items
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message
+    });
+  }
+};
+
+exports.getActiveRentals = async (req, res) => {
+  try {
+    const rentals = await Rental.find({
+      user: req.user.id,
+      status: 'ongoing'
+    });
+
+    return res.status(200).json({
+      total: rentals.length,
+      data: rentals
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message
+    });
+  }
+};
+
+exports.removeRentalItem = async (req, res) => {
+  try {
+    const detail = await RentalDetail.findById(
+      req.params.itemId
+    );
+
+    if (!detail) {
+      return res.status(404).json({
+        message: "Item tidak ditemukan"
+      });
+    }
+
+    const rental = await Rental.findById(
+      detail.rental
+    );
+
+    rental.totalPrice -= detail.subTotal;
+
+    await rental.save();
+
+    await detail.deleteOne();
+
+    return res.status(200).json({
+      message: "Item berhasil dihapus",
+      totalPrice: rental.totalPrice
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message
+    });
+  }
+};
+
+exports.updateRentalDays = async (req, res) => {
+  try {
+    const { rentalDays } = req.body;
+
+    const rental = await Rental.findById(
+      req.params.id
+    );
+
+    if (!rental) {
+      return res.status(404).json({
+        message: "Rental tidak ditemukan"
+      });
+    }
+
+    rental.rentalDays = rentalDays;
+
+    const details = await RentalDetail.find({
+      rental: rental._id
+    }).populate('game');
+
+    let totalPrice = 0;
+
+    for (const item of details) {
+      item.subTotal =
+        item.game.price * rentalDays;
+
+      await item.save();
+
+      totalPrice += item.subTotal;
+    }
+
+    rental.totalPrice = totalPrice;
+
+    await rental.save();
+
+    return res.status(200).json({
+      message: "Lama sewa berhasil diperbarui",
+      rental
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message
+    });
+  }
+};
